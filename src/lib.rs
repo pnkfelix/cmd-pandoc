@@ -47,10 +47,10 @@ impl EmailObfuscation {
 
 pub type URL = str;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub enum PandocOption<'a> {
-    To(OutputFormat),                   // -t FORMAT  --to=FORMAT
-    DataDir(&'a Path),                   // --data-dir=DIRECTORY
+    To(OutputFormatExt),                // -t FORMAT  --to=FORMAT
+    DataDir(&'a Path),                  // --data-dir=DIRECTORY
     Strict,                             // --strict
     ParseRaw,                           // -R --parse-raw
     Smart,                              // -S --smart
@@ -139,6 +139,28 @@ pub enum OutputFormat {
     slideous, slidy, texinfo, textile
 }
 
+#[derive(Clone, Debug)]
+pub enum OutputFormatExt {
+    Fmt(OutputFormat),
+    FmtExt(OutputFormat, Vec<String>),
+}
+
+impl OutputFormatExt {
+    fn render(&self) -> String {
+        match *self {
+            OutputFormatExt::Fmt(ref s) => s.to_string(),
+            OutputFormatExt::FmtExt(ref s, ref ext) => {
+                let mut s = s.to_string();
+                for e in ext {
+                    s.push_str("+");
+                    s.push_str(e);
+                }
+                s
+            }
+        }
+    }
+}
+
 macro_rules! cases {
     ($x:expr => $($id:ident),*) => {
         match $x {
@@ -179,7 +201,7 @@ impl<'a> PandocOption<'a> {
                 pandoc.args(&[&format!("--number-offset={}", nums)])
             }
 
-            To(ref f)                => pandoc.args(&["-t", f]),
+            To(ref f)                => pandoc.args(&["-t", &f.render()]),
             DataDir(dir)             => pandoc.args(&[&format!("--data-dir={}", dir.display())]),
             Strict                   => pandoc.args(&["--strict"]),
             ParseRaw                 => pandoc.args(&["--parse-raw"]),
