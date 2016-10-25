@@ -306,6 +306,8 @@ fn read_dir<P: AsRef<Path>>(path: P) -> Result<fs::ReadDir> {
     })
 }
 
+
+/// Run pandoc on all Markdown files in a directory.
 pub fn run_pandoc(src_dir: &str, target_name: &str, opts: &[PandocOption]) -> Result<()> {
     let src_dir_path = &format!("src/{}", src_dir);
     let mut src_paths = Vec::new();
@@ -352,6 +354,44 @@ pub fn run_pandoc(src_dir: &str, target_name: &str, opts: &[PandocOption]) -> Re
     }
 
     Ok(())
+}
+
+
+/// Run pandoc on a single Markdown file and return a string.
+pub fn string_from_pandoc(src_path: &str,
+                          opts: &[PandocOption])
+                          -> std::result::Result<String, String> {
+
+    let mut pandoc = Command::new("pandoc");
+    for o in opts {
+        o.apply(&mut pandoc);
+    }
+
+    pandoc.arg(src_path);
+
+    let command = format!("{:?}", pandoc);
+    match pandoc.output() {
+        Ok(ref output) if output.status.success() => {
+            Ok(format!("{}", String::from_utf8_lossy(&output.stdout)))
+        }
+        Ok(ref output) => {
+            Err(format!("something went wrong running pandoc;\
+                         command: {}\ncurrent_dir: {}\nexit status: {:?}\nstdout: {}\nstderr: {}",
+                        command,
+                        env::current_dir().unwrap().display(),
+                        output.status.code(),
+                        String::from_utf8_lossy(&output.stdout),
+                        String::from_utf8_lossy(&output.stderr)))
+        }
+        Err(e) => {
+            Err(format!("something went wrong running pandoc; \
+                         command: {}\ncurrent_dir: {}\nerr: {}\nPATH: {:?}",
+                        command,
+                        env::current_dir().unwrap().display(),
+                        e,
+                        env::var_os("PATH")))
+        }
+    }
 }
 
 fn is_skipped_md(entry: &fs::DirEntry) -> bool {
